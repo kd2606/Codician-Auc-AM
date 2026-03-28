@@ -12,7 +12,8 @@ app.use(cors());
 app.use(express.json());
 
 const { initSheets, appendAttendanceRow } = require('./sheets');
-initSheets();  // Initialize Google Sheets connection
+// Initialize Google Sheets connection (non-blocking — won't crash if it fails)
+initSheets().catch(err => console.error('Sheets init error (non-fatal):', err));
 
 // Firebase Admin Initialization (Placeholder for future actual integration)
 // You should download the serviceAccountKey.json from Firebase and place it in the backend folder
@@ -31,8 +32,11 @@ app.use('/assets', express.static(path.join(__dirname, '../assets')));
 // In-process memory store for sessions (Temporary until Firebase is fully connected)
 const activeSessions = {};
 
+// Load college config once at startup
+const collegeConfig = require('./data/collegeConfig.json');
+
 app.get('/api/config', (req, res) => {
-  res.sendFile(path.join(__dirname, 'data', 'collegeConfig.json'));
+  res.json(collegeConfig);
 });
 
 // 1. Organizer Endpoints
