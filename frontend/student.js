@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Important: sending the 5-minute submission token instead of the short URL token
-        body: JSON.stringify({ token: submissionToken, studentName, rollNumber, branch, semester })
+        body: JSON.stringify({ token: submissionToken, name: studentName, rollNumber, branch, semester })
       });
 
       const data = await response.json();
