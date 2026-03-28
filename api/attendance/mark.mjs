@@ -131,7 +131,7 @@ export default async function handler(req, res) {
     
     let userFriendlyError = `Failed to mark attendance: ${error.message}`;
     if (error.message.includes('404')) {
-      userFriendlyError = `Google Sheet Not Found! You must click "Share" on your Google Sheet and invite the service account email: ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_EMAIL} with Editor access. Also check if SHEET_ID is fully correct in Vercel.`;
+      userFriendlyError = `Google Sheet Not Found! Check Vercel API Keys. \nThe server is trying to access SHEET_ID: "${sheetId}".\nIf this ID doesn't match your URL, Vercel variables are wrong. If it DOES match, ensure "sheet-bot@codician-attendance.iam.gserviceaccount.com" has Editor access.`;
     }
 
     // Send the raw error directly so we stop guessing what fails
