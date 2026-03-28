@@ -2,7 +2,7 @@
   "version": 2,
   "builds": [
     {
-      "src": "api/attendance/mark.js",
+      "src": "api/attendance/mark.mjs",
       "use": "@vercel/node"
     },
     {
@@ -21,7 +21,7 @@
   "rewrites": [
     {
       "source": "/api/attendance/mark",
-      "destination": "/api/attendance/mark.js"
+      "destination": "/api/attendance/mark.mjs"
     },
     {
       "source": "/api/(.*)",
