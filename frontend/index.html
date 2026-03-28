@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codician Auc AM - Organizer Control</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="panel">
+    <div class="panel-header">
+      <div class="screw top-left"></div>
+      <div class="screw top-right"></div>
+      <div class="logo-bezel">
+        <img src="../assets/logo.png" alt="Codician Club Logo" class="hardware-logo" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'%23111\'/><text x=\'50%\' y=\'50%\' fill=\'%23555\' text-anchor=\'middle\' dy=\'.3em\' font-family=\'monospace\'>LOGO</text></svg>'">
+      </div>
+      <h1 class="embossed-title">SESSION CONTROL PANEL</h1>
+    </div>
+
+    <div class="screen-bezel">
+      <div class="screen">
+        <p class="matrix-text" id="status-display">SYSTEM STANDBY</p>
+      </div>
+    </div>
+
+    <form id="session-form">
+      <div class="input-hardware">
+        <label for="event-name" class="label-hardware">EVENT DESIGNATION</label>
+        <div class="input-bezel">
+          <input type="text" id="event-name" required placeholder="e.g. Hackathon 2026">
+        </div>
+      </div>
+
+      <div class="input-hardware">
+        <label for="branch-select" class="label-hardware">BRANCH DESIGNATION</label>
+        <div class="input-bezel select-bezel">
+          <select id="branch-select" required class="hardware-select">
+            <option value="" disabled selected>-- SELECT BRANCH --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-hardware">
+        <label for="semester-select" class="label-hardware">SEMESTER LOG</label>
+        <div class="input-bezel select-bezel">
+          <select id="semester-select" required class="hardware-select" disabled>
+            <option value="" disabled selected>-- SELECT SEMESTER --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-hardware">
+        <label for="subject-code" class="label-hardware">SUBJECT IDENTIFIER</label>
+        <div class="input-bezel select-bezel">
+          <select id="subject-code" required class="hardware-select" disabled>
+            <option value="" disabled selected>-- SELECT SUBJECT --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="input-hardware">
+        <label for="teacher-name" class="label-hardware">AUTHORIZED INSTRUCTOR</label>
+        <div class="input-bezel select-bezel">
+          <select id="teacher-name" required class="hardware-select" disabled>
+            <option value="" disabled selected>-- SELECT INSTRUCTOR --</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <div class="switch-container">
+          <label class="label-hardware">POWER</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="power-toggle">
+            <span class="slider"></span>
+          </div>
+        </div>
+
+        <button type="submit" id="start-btn" class="hardware-btn" disabled>
+          <span class="btn-inner">ENGAGE</span>
+        </button>
+        
+        <button type="button" id="end-btn" class="hardware-btn danger" disabled>
+          <span class="btn-inner">TERMINATE</span>
+        </button>
+      </div>
+    </form>
+    
+    <div class="panel-footer">
+      <div class="screw bottom-left"></div>
+      <div class="screw bottom-right"></div>
+      <div class="serial">SN: C-AUC-001X</div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

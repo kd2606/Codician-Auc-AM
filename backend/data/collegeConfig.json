@@ -1,0 +1,56 @@
+{
+  "CSE": {
+    "Semester 4": [
+      {
+        "id": "CS-401",
+        "name": "Operating Systems",
+        "instructors": [
+          "Dr. John Doe",
+          "Prof. Alan Turing"
+        ]
+      },
+      {
+        "id": "CS-402",
+        "name": "Database Management Systems",
+        "instructors": [
+          "Dr. Grace Hopper",
+          "Prof. Ada Lovelace"
+        ]
+      },
+      {
+        "id": "CS-403",
+        "name": "Theory of Computation",
+        "instructors": [
+          "Dr. Linus Torvalds",
+          "Prof. Tim Berners-Lee"
+        ]
+      }
+    ],
+    "Semester 6": [
+      {
+        "id": "CS-601",
+        "name": "Machine Learning",
+        "instructors": [
+          "Dr. Andrew Ng",
+          "Prof. Yann LeCun"
+        ]
+      },
+      {
+        "id": "CS-602",
+        "name": "Compiler Design",
+        "instructors": [
+          "Dr. Donald Knuth",
+          "Prof. Ken Thompson"
+        ]
+      },
+      {
+        "id": "CS-603",
+        "name": "Cloud Computing",
+        "instructors": [
+          "Dr. Werner Vogels",
+          "Prof. Kelsey Hightower"
+        ]
+      }
+    ]
+  }
+}

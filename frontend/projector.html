@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Codician Auc AM - Live Presentation</title>
+  <link rel="stylesheet" href="projector.css">
+</head>
+<body>
+  <div class="projector-panel">
+    <div class="header">
+      <img src="../assets/logo.png" class="logo" alt="Codician Club" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'80\' height=\'80\'><rect width=\'80\' height=\'80\' fill=\'%23111\'/><text x=\'50%\' y=\'50%\' fill=\'%23555\' text-anchor=\'middle\' dy=\'.3em\' font-family=\'monospace\'>LOGO</text></svg>'">
+      <h1 class="embossed-title">SESSION ATTENDANCE GATEWAY</h1>
+    </div>
+
+    <div class="security-readout">
+      <div class="led-indicator active"></div>
+      <span>ENCRYPTED LINK ACTIVE • REFRESHING IN <strong id="timer">10</strong> SECONDS</span>
+    </div>
+
+    <div class="qr-bezel">
+      <div class="qr-screen">
+        <div id="qrcode"></div>
+        <div class="scanning-line"></div>
+      </div>
+    </div>
+
+    <div class="footer-info">
+      <h3>SCAN WITH MOBILE DEVICE TO VERIFY ATTENDANCE</h3>
+      <p class="warning-text">LIFESPAN: 10 SECONDS. DO NOT USE PHOTOS.</p>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="projector.js"></script>
+</body>
+</html>

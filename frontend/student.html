@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Codician - Digital ID Scanner</title>
+  <link rel="stylesheet" href="student.css">
+</head>
+<body>
+  <div class="device-casing">
+    <div class="casing-header">
+      <div class="scanner-lens"></div>
+      <div class="brand">CODICIAN MK-II</div>
+    </div>
+
+    <!-- Scanner Screen Display -->
+    <div class="display-bezel">
+      <div class="display-screen" id="status-screen">
+        <div class="matrix-text" id="status-text">INITIALIZING...</div>
+        <div class="sub-text" id="status-sub">AWAITING LOCATION FIX</div>
+      </div>
+    </div>
+
+    <!-- Form Interface (Hidden Initially) -->
+    <div id="form-container" class="form-hardware hidden">
+      <form id="attendance-form">
+        <div class="input-bay">
+          <label class="hardware-label">FULL LEGAL NAME</label>
+          <div class="input-bezel">
+            <input type="text" id="student-name" class="hardware-input" required placeholder="John Doe">
+          </div>
+        </div>
+
+        <div class="input-bay">
+          <label class="hardware-label">ENROLLMENT ID</label>
+          <div class="input-bezel">
+            <input type="text" id="roll-number" class="hardware-input" required placeholder="e.g. A990011...">
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="input-bay half">
+            <label class="hardware-label">BRANCH</label>
+            <div class="input-bezel select-bezel">
+              <select id="branch" class="hardware-select" required>
+                <option value="" disabled selected>-- SEL --</option>
+                <option value="CSE">CSE</option>
+                <option value="ECE">ECE</option>
+                <option value="IT">IT</option>
+                <option value="MECH">MECH</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="input-bay half">
+            <label class="hardware-label">SEMESTER</label>
+            <div class="input-bezel select-bezel">
+              <select id="semester" class="hardware-select" required>
+                <option value="" disabled selected>-- SEL --</option>
+                <option value="1">1st</option>
+                <option value="2">2nd</option>
+                <option value="3">3rd</option>
+                <option value="4">4th</option>
+                <option value="5">5th</option>
+                <option value="6">6th</option>
+                <option value="7">7th</option>
+                <option value="8">8th</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="button-bay">
+          <button type="submit" id="submit-btn" class="submit-hardware">
+            <span>TRANSMIT ID</span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div class="casing-footer">
+      <div class="speaker-grill">
+        <div></div><div></div><div></div><div></div><div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="student.js"></script>
+</body>
+</html>
