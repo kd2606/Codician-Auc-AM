@@ -56,7 +56,13 @@ export default async function handler(req, res) {
     const rawSheetId = process.env.SHEET_ID || '';
     const rawServiceEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_EMAIL || '';
     
-    const sheetId = rawSheetId.trim();
+    let sheetId = rawSheetId.trim();
+    // Auto-fix if user pasted the entire URL into SHEET_ID variable
+    const urlMatch = sheetId.match(/\/d\/([a-zA-Z0-9\-_]+)/);
+    if (urlMatch) {
+      sheetId = urlMatch[1];
+    }
+
     const serviceEmail = rawServiceEmail.trim();
 
     // Ensure newlines are parsed correctly from Vercel env
@@ -80,23 +86,38 @@ export default async function handler(req, res) {
     await doc.loadInfo();
     console.log('[mark.mjs] ✔ Connected to Sheet:', doc.title);
 
-    const sheet = doc.sheetsByIndex[0];
+    // ── Restoring original event-based Tab logic ─────────────────────────
+    let targetSheet;
+    try {
+      targetSheet = doc.sheetsByTitle[eventName];
+    } catch (e) { /* ignore */ }
     
-    // Restoring original header layout so .addRow maps correctly
-    await sheet.setHeaderRow(HEADERS);
+    // Create new sheet tab if none exists for this event
+    if (!targetSheet) {
+      console.log(`[mark.mjs] Creating new sheet tab for event: ${eventName}`);
+      targetSheet = await doc.addSheet({ title: eventName });
+      await targetSheet.setHeaderRow(HEADERS);
+    } else {
+      // Ensure headers exist just in case it was created manually
+      await targetSheet.loadHeaderRow().catch(() => null);
+      if (!targetSheet.headerValues || targetSheet.headerValues.length === 0) {
+        await targetSheet.setHeaderRow(HEADERS);
+      }
+    }
 
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
-    await sheet.addRow({
+    // Append standard row to the target sheet
+    await targetSheet.addRow({
       'Name': name,
       'Roll Number': rollNumber,
       'Branch': branch,
       'Semester': semester,
-      'Event Name': eventName, // Extracted from JWT token!
+      'Event Name': eventName,
       'Timestamp': timestamp
     });
 
-    console.log('[mark.mjs] ✔ Successfully logged:', name, rollNumber);
+    console.log(`[mark.mjs] ✔ Successfully logged ${name} to tab "${eventName}"`);
 
     return res.status(200).json({
       success: true,
