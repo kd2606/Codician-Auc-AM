@@ -144,6 +144,11 @@ app.post('/api/attendance/mark', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Codician AUC Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Codician AUC Server running on port ${PORT}`);
+  });
+}
+
+// Export for Vercel Serverless
+module.exports = app;
