@@ -1,45 +1,32 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const admin = require('firebase-admin');
 const jwt = require('jsonwebtoken');
-
-const fs = require('fs');
 const path = require('path');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const { initSheets, appendAttendanceRow } = require('./sheets');
-// Initialize Google Sheets connection (non-blocking — won't crash if it fails)
-initSheets().catch(err => console.error('Sheets init error (non-fatal):', err));
-
-// Firebase Admin Initialization (Placeholder for future actual integration)
-// You should download the serviceAccountKey.json from Firebase and place it in the backend folder
-// const serviceAccount = require('./serviceAccountKey.json');
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount)
-// });
-
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-default-key-123';
 const PORT = process.env.PORT || 3000;
 
-// Serve frontend assets statically
+// Serve frontend assets statically (local dev only; Vercel handles static via vercel.json)
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/assets', express.static(path.join(__dirname, '../assets')));
 
-// In-process memory store for sessions (Temporary until Firebase is fully connected)
+// In-process memory store for sessions
 const activeSessions = {};
 
-// Load college config once at startup
+// ── /api/config ──────────────────────────────────────────────────────────────
+// Load college config via require (works reliably in Vercel serverless)
 const collegeConfig = require('./data/collegeConfig.json');
 
 app.get('/api/config', (req, res) => {
   res.json(collegeConfig);
 });
 
-// 1. Organizer Endpoints
+// ── /api/session/start ───────────────────────────────────────────────────────
 app.post('/api/session/start', (req, res) => {
   const { eventName, teacherName, subjectCode, branch, semester } = req.body;
 
@@ -48,7 +35,7 @@ app.post('/api/session/start', (req, res) => {
   }
 
   const sessionId = 'SESSION_' + Date.now();
-  
+
   activeSessions[sessionId] = {
     eventName,
     teacherName,
@@ -63,6 +50,7 @@ app.post('/api/session/start', (req, res) => {
   res.json({ message: 'Session started', sessionId });
 });
 
+// ── /api/session/end/:id ──────────────────────────────────────────────────────
 app.post('/api/session/end/:id', (req, res) => {
   const { id } = req.params;
   const session = activeSessions[id];
@@ -74,37 +62,35 @@ app.post('/api/session/end/:id', (req, res) => {
   session.status = 'ended';
   session.endTime = new Date();
 
-  // Here, ideally write the final session.attendees array to Google Sheets or Firebase 
-  // and trigger the email to teacherName.
-
   res.json({ message: 'Session ended successfully', totalAttendees: session.attendees.length });
 });
 
-// 2. Projector View / QR Token Generation
+// ── /api/token/generate/:sessionId ───────────────────────────────────────────
 app.get('/api/token/generate/:sessionId', (req, res) => {
   const { sessionId } = req.params;
 
   if (!activeSessions[sessionId] || activeSessions[sessionId].status !== 'active') {
-    // Auto-recovery for testing: if session is gone, create a dummy one instead of crashing the projector
     console.log(`Auto-generating missing session ${sessionId} for projector view`);
     activeSessions[sessionId] = {
-      eventName: "Demo Recovered Session",
-      teacherName: "Demo Instructor",
-      subjectCode: "RECOV-101",
+      eventName: 'Demo Recovered Session',
+      teacherName: 'Demo Instructor',
+      subjectCode: 'RECOV-101',
       startTime: new Date(),
       status: 'active',
       attendees: []
     };
   }
 
-  // Generate a token that expires in 10 seconds
-  const token = jwt.sign({ sessionId, exp: Math.floor(Date.now() / 1000) + 10 }, JWT_SECRET);
+  const token = jwt.sign(
+    { sessionId, exp: Math.floor(Date.now() / 1000) + 10 },
+    JWT_SECRET
+  );
 
   res.json({ token, expires_in: 10 });
 });
 
-// 3. Student Client / Attendance Submission
-app.post('/api/attendance/mark', (req, res) => {
+// ── /api/attendance/mark ──────────────────────────────────────────────────────
+app.post('/api/attendance/mark', async (req, res) => {
   const { token, studentName, rollNumber, branch, semester } = req.body;
 
   if (!token) {
@@ -120,24 +106,21 @@ app.post('/api/attendance/mark', (req, res) => {
       return res.status(400).json({ error: 'Session is no longer active' });
     }
 
-    // Checking for duplicates
     const alreadyMarked = session.attendees.find((s) => s.rollNumber === rollNumber);
     if (alreadyMarked) {
       return res.status(403).json({ error: 'Attendance already marked for this user' });
     }
 
-    const studentRecord = {
-      studentName,
-      rollNumber,
-      branch,
-      semester,
-      timestamp: new Date()
-    };
-    
+    const studentRecord = { studentName, rollNumber, branch, semester, timestamp: new Date() };
     session.attendees.push(studentRecord);
-    
-    // Append to Google Sheets directly
-    appendAttendanceRow(session, studentRecord);
+
+    // Lazy-load sheets to avoid crashing the module if Google credentials are missing
+    try {
+      const { appendAttendanceRow } = require('./sheets');
+      await appendAttendanceRow(session, studentRecord);
+    } catch (sheetsErr) {
+      console.error('Sheets append failed (non-fatal):', sheetsErr.message);
+    }
 
     res.json({ message: 'Attendance marked successfully!' });
   } catch (err) {
@@ -148,6 +131,7 @@ app.post('/api/attendance/mark', (req, res) => {
   }
 });
 
+// Local dev only
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
     console.log(`Codician AUC Server running on port ${PORT}`);
