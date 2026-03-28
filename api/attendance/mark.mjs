@@ -53,10 +53,12 @@ export default async function handler(req, res) {
 
   // ── 4. Google Sheets Connection & Append ─────────────────────────────────
   try {
-    const sheetId = process.env.SHEET_ID;
-    // Check if the old env variable was used instead of the new one
-    const serviceEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_EMAIL;
+    const rawSheetId = process.env.SHEET_ID || '';
+    const rawServiceEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_EMAIL || '';
     
+    const sheetId = rawSheetId.trim();
+    const serviceEmail = rawServiceEmail.trim();
+
     // Ensure newlines are parsed correctly from Vercel env
     const privateKey = process.env.GOOGLE_PRIVATE_KEY
       ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n').replace(/"/g, '')
@@ -106,10 +108,15 @@ export default async function handler(req, res) {
     console.error('[mark.mjs] ✖ SERVER CRASH:', error.message);
     console.error(error.stack);
     
+    let userFriendlyError = `Failed to mark attendance: ${error.message}`;
+    if (error.message.includes('404')) {
+      userFriendlyError = `Google Sheet Not Found! You must click "Share" on your Google Sheet and invite the service account email: ${process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_EMAIL} with Editor access. Also check if SHEET_ID is fully correct in Vercel.`;
+    }
+
     // Send the raw error directly so we stop guessing what fails
     return res.status(500).json({
       success: false,
-      error: `Failed to mark attendance: ${error.message}`
+      error: userFriendlyError
     });
   }
 }
