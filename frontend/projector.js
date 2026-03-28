@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     height: 250,
     colorDark : "#000000",
     colorLight : "#effcf2",
-    correctLevel : QRCode.CorrectLevel.H
+    correctLevel : QRCode.CorrectLevel.L
   });
 
   // Listen to Firebase Realtime Database
@@ -81,21 +81,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       const data = await response.json();
-      const tokenUrl = `${baseStudentUrl}?token=${data.token}`;
+      const tokenUrl = `https://codician-auc-am.vercel.app/student.html?token=${data.token}`;
       
       qrCode.clear(); 
       qrCode.makeCode(tokenUrl);
 
       // Start Countdown
-      count = 10;
+      count = parseInt(data.expires_in, 10) || 10;
       updateDisplay();
       
       // Schedule next token fetch
       pollTimeout = setTimeout(fetchNewToken, 10000);
     } catch (err) {
       console.error('Error fetching token:', err);
-      const tDisp = document.getElementById('timer');
-      if(tDisp) tDisp.textContent = 'ERR';
+      // Fail gracefully: reset the timer instead of breaking the UI
+      count = 10;
+      updateDisplay();
       // Retry faster on error
       pollTimeout = setTimeout(fetchNewToken, 3000);
     }
