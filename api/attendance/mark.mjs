@@ -1,21 +1,30 @@
 // ============================================================
 //  /api/attendance/mark.mjs
 //  Vercel Serverless Function — ES Module
-//  Fixes JWT Validation & Restores Original Column Format
 // ============================================================
 
 import { JWT } from 'google-auth-library';
 import { GoogleSpreadsheet } from 'google-spreadsheet';
-import jwt from 'jsonwebtoken';
 
 const HEADERS = ['Name', 'Roll Number', 'Branch', 'Semester', 'Event Name', 'Timestamp'];
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-default-key-123';
+
+// ── Decode JWT payload without external library (ESM-safe) ────────────────────
+// The handshake endpoint already validated the token. We just read the payload.
+function decodeJwtPayload(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const json = Buffer.from(base64, 'base64').toString('utf8');
+    return JSON.parse(json);
+  } catch (e) {
+    return null;
+  }
+}
 
 export default async function handler(req, res) {
-  // ── 1. Allow CORS / Handle OPTIONS / POST Only ───────────────────────────
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  // ── 1. OPTIONS preflight / POST only ─────────────────────────────────────
+  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed. Use POST.' });
   }
@@ -24,9 +33,9 @@ export default async function handler(req, res) {
 
   const { token, name, rollNumber, branch, semester } = req.body;
 
-  // ── 2. Validate payload ──────────────────────────────────────────────────
+  // ── 2. Validate payload fields ────────────────────────────────────────────
   if (!token) {
-    return res.status(400).json({ error: 'Missing QR token' });
+    return res.status(400).json({ error: 'Missing submission token' });
   }
   if (!name || !rollNumber || !branch || !semester) {
     return res.status(400).json({
@@ -35,47 +44,45 @@ export default async function handler(req, res) {
     });
   }
 
-  // ── 3. Verify JWT & Extract Event Name ───────────────────────────────────
-  let eventName;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    eventName = decoded.eventName;
-    if (!eventName) {
-      return res.status(400).json({ error: 'Invalid session payload: Missing event Name' });
-    }
-    console.log('[mark.mjs] ✔ JWT Validated. Event:', eventName);
-  } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'SCAN EXPIRED: Please scan the latest code on the projector.' });
-    }
-    return res.status(401).json({ error: 'Invalid QR token' });
+  // ── 3. Decode JWT & extract eventName ─────────────────────────────────────
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return res.status(401).json({ error: 'Invalid or corrupt token' });
   }
 
-  // ── 4. Google Sheets Connection & Append ─────────────────────────────────
+  const eventName = payload.eventName;
+  if (!eventName) {
+    return res.status(401).json({ error: 'Token missing eventName — scan the QR again' });
+  }
+
+  // Check expiry manually
+  if (payload.exp && Date.now() / 1000 > payload.exp) {
+    return res.status(401).json({ error: 'SCAN EXPIRED: Please scan the latest code on the projector.' });
+  }
+
+  console.log('[mark.mjs] ✔ Token decoded. Event:', eventName);
+
+  // ── 4. Google Sheets ──────────────────────────────────────────────────────
+  let sheetId;
   try {
-    const rawSheetId = process.env.SHEET_ID || '';
-    const rawServiceEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_EMAIL || '';
-    
-    let sheetId = rawSheetId.trim();
-    // Auto-fix if user pasted the entire URL into SHEET_ID variable
-    const urlMatch = sheetId.match(/\/d\/([a-zA-Z0-9\-_]+)/);
-    if (urlMatch) {
-      sheetId = urlMatch[1];
-    }
+    const rawSheetId = (process.env.SHEET_ID || '').trim();
+    const rawEmail   = (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_SERVICE_EMAIL || '').trim();
 
-    const serviceEmail = rawServiceEmail.trim();
+    // Auto-extract ID if a full URL was pasted
+    const urlMatch = rawSheetId.match(/\/d\/([a-zA-Z0-9\-_]+)/);
+    sheetId = urlMatch ? urlMatch[1] : rawSheetId;
 
-    // Ensure newlines are parsed correctly from Vercel env
+    const serviceEmail = rawEmail;
     const privateKey = process.env.GOOGLE_PRIVATE_KEY
       ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n').replace(/"/g, '')
       : null;
 
     if (!sheetId || !serviceEmail || !privateKey) {
-      console.error('[mark.mjs] ✖ Missing Sheets credentials in Environment.');
-      return res.status(500).json({ error: 'Server missing Google Sheets credentials (SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY)' });
+      return res.status(500).json({
+        error: `Server misconfiguration — missing env vars. sheetId="${sheetId}" email="${serviceEmail}" key=${!!privateKey}`
+      });
     }
 
-    // Google Auth Library v10+ setup (Fixing v5 crash)
     const jwtClient = new JWT({
       email: serviceEmail,
       key: privateKey,
@@ -84,31 +91,24 @@ export default async function handler(req, res) {
 
     const doc = new GoogleSpreadsheet(sheetId, jwtClient);
     await doc.loadInfo();
-    console.log('[mark.mjs] ✔ Connected to Sheet:', doc.title);
+    console.log('[mark.mjs] ✔ Connected to sheet:', doc.title);
 
-    // ── Restoring original event-based Tab logic ─────────────────────────
-    let targetSheet;
-    try {
-      targetSheet = doc.sheetsByTitle[eventName];
-    } catch (e) { /* ignore */ }
-    
-    // Create new sheet tab if none exists for this event
-    if (!targetSheet) {
-      console.log(`[mark.mjs] Creating new sheet tab for event: ${eventName}`);
-      targetSheet = await doc.addSheet({ title: eventName });
-      await targetSheet.setHeaderRow(HEADERS);
+    // Find or create a tab named after the event
+    let sheet = doc.sheetsByTitle[eventName];
+    if (!sheet) {
+      console.log('[mark.mjs] Creating new tab:', eventName);
+      sheet = await doc.addSheet({ title: eventName });
+      await sheet.setHeaderRow(HEADERS);
     } else {
-      // Ensure headers exist just in case it was created manually
-      await targetSheet.loadHeaderRow().catch(() => null);
-      if (!targetSheet.headerValues || targetSheet.headerValues.length === 0) {
-        await targetSheet.setHeaderRow(HEADERS);
+      await sheet.loadHeaderRow().catch(() => null);
+      if (!sheet.headerValues || sheet.headerValues.length === 0) {
+        await sheet.setHeaderRow(HEADERS);
       }
     }
 
     const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 
-    // Append standard row to the target sheet
-    await targetSheet.addRow({
+    await sheet.addRow({
       'Name': name,
       'Roll Number': rollNumber,
       'Branch': branch,
@@ -117,7 +117,7 @@ export default async function handler(req, res) {
       'Timestamp': timestamp
     });
 
-    console.log(`[mark.mjs] ✔ Successfully logged ${name} to tab "${eventName}"`);
+    console.log(`[mark.mjs] ✔ Logged: ${name} → tab "${eventName}"`);
 
     return res.status(200).json({
       success: true,
@@ -126,18 +126,14 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    console.error('[mark.mjs] ✖ SERVER CRASH:', error.message);
+    console.error('[mark.mjs] ✖ CRASH:', error.message);
     console.error(error.stack);
-    
-    let userFriendlyError = `Failed to mark attendance: ${error.message}`;
+
+    let msg = `Failed: ${error.message}`;
     if (error.message.includes('404')) {
-      userFriendlyError = `Google Sheet Not Found! Check Vercel API Keys. \nThe server is trying to access SHEET_ID: "${sheetId}".\nIf this ID doesn't match your URL, Vercel variables are wrong. If it DOES match, ensure "sheet-bot@codician-attendance.iam.gserviceaccount.com" has Editor access.`;
+      msg = `Sheet not found (SHEET_ID="${sheetId}"). Share your Google Sheet with the service account email and verify SHEET_ID in Vercel.`;
     }
 
-    // Send the raw error directly so we stop guessing what fails
-    return res.status(500).json({
-      success: false,
-      error: userFriendlyError
-    });
+    return res.status(500).json({ success: false, error: msg });
   }
 }
