@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Hardcoded Venue Coordinates: Amity University Chhattisgarh
   const VENUE_LAT = 21.1852;
   const VENUE_LON = 81.7103;
-  const MAX_DISTANCE_METERS = 20;
+  const MAX_DISTANCE_METERS = 100000; // TEMP: increased to 100km for remote testing (revert to 20 after)
 
   if (!token) {
     showError("NO TOKEN DECTECTED", "Scan a physical QR code to begin.");
