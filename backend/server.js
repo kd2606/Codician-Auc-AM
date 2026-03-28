@@ -78,12 +78,13 @@ app.post('/api/attendance/mark', async (req, res) => {
 
     const studentRecord = { studentName, rollNumber, branch, semester, timestamp: new Date() };
 
-    // Lazy-load sheets to avoid crashing the module if Google credentials are missing
+    // Lazy-load sheets to safely handle database writes
     try {
       const { appendAttendanceRow } = require('./sheets');
       await appendAttendanceRow(eventName, studentRecord);
     } catch (sheetsErr) {
-      console.error('Sheets append failed (non-fatal):', sheetsErr.message);
+      console.error('Sheets append failed (FATAL):', sheetsErr.message);
+      return res.status(500).json({ error: "Sheet append failed", details: sheetsErr.message });
     }
 
     res.json({ message: 'Attendance marked successfully!' });

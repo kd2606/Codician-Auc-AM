@@ -1,4 +1,4 @@
-const { GoogleSpreadsheet } = require('google-spreadsheet');
+// No top-level require for google-spreadsheet to prevent ESM crash
 
 // Initialize the sheet
 // Ensure you have these variables in your Vercel Environment Variables later
@@ -16,6 +16,9 @@ async function initSheets() {
   }
 
   try {
+    const pkg = await import('google-spreadsheet');
+    const GoogleSpreadsheet = pkg.GoogleSpreadsheet || pkg.default?.GoogleSpreadsheet || pkg;
+    
     doc = new GoogleSpreadsheet(SHEET_ID);
     
     // Authenticate using the service account credential
@@ -39,6 +42,12 @@ async function appendAttendanceRow(eventName, studentData) {
   }
 
   try {
+    // If doc isn't initialized yet, try initializing it
+    if (!doc) {
+      await initSheets();
+      if (!doc) throw new Error("Google Sheets failed to initialize.");
+    }
+
     // Append standard row to the first sheet
     let sheet = doc.sheetsByIndex[0]; 
 
@@ -54,6 +63,7 @@ async function appendAttendanceRow(eventName, studentData) {
     console.log(`Appended attendance record for ${studentData.studentName} to Sheets.`);
   } catch (err) {
     console.error('Error appending row to Google Sheets:', err);
+    throw err; // Crucial: Throw error so server.js catches it and returns HTTP 500
   }
 }
 
