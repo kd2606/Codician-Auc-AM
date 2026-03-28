@@ -32,26 +32,19 @@ async function initSheets() {
   }
 }
 
-async function appendAttendanceRow(session, studentData) {
+async function appendAttendanceRow(eventName, studentData) {
   if (!doc) {
     console.warn('Google Sheets not initialized. Skipping row append.');
     return;
   }
 
   try {
-    // Attempt to select the specific worksheet for the Subject or use the first one
-    // Fallback: If no dedicated sheet, use first sheet
-    let sheet = doc.sheetsByTitle[session.subjectCode];
-    if (!sheet) {
-      sheet = doc.sheetsByIndex[0]; 
-    }
+    // Append standard row to the first sheet
+    let sheet = doc.sheetsByIndex[0]; 
 
-    // Append standard row
     await sheet.addRow({
       Timestamp: new Date().toISOString(),
-      'Event Name': session.eventName,
-      'Subject Code': session.subjectCode,
-      'Instructor': session.teacherName,
+      'Event Name': eventName,
       'Student Name': studentData.studentName,
       'Roll Number': studentData.rollNumber,
       'Branch': studentData.branch,

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Codician Auc AM - Live Presentation</title>
   <link rel="stylesheet" href="projector.css">
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-database-compat.js"></script>
 </head>
 <body>
   <div class="projector-panel">
@@ -19,9 +21,10 @@
     </div>
 
     <div class="qr-bezel">
-      <div class="qr-screen">
+      <div class="qr-screen" id="qr-screen">
         <div id="qrcode"></div>
-        <div class="scanning-line"></div>
+        <div class="scanning-line" id="scanning-line"></div>
+        <div id="session-ended-message" style="display: none; height: 100%; display: flex; align-items: center; justify-content: center; font-family: monospace; font-size: 2rem; color: #ff3333; text-shadow: 0 0 10px #ff3333;">SESSION TERMINATED</div>
       </div>
     </div>
 

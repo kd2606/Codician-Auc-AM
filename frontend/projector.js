@@ -1,70 +1,125 @@
+// Add your Firebase configuration here
+const firebaseConfig = {
+  apiKey: "AIzaSyBdrdMchIOKM-WYvSlV1yhUYsqhqCQpw2w",
+  authDomain: "codician-auc-am.firebaseapp.com",
+  databaseURL: "https://codician-auc-am-default-rtdb.firebaseio.com",
+  projectId: "codician-auc-am",
+  storageBucket: "codician-auc-am.firebasestorage.app",
+  messagingSenderId: "199835691387",
+  appId: "1:199835691387:web:516aaf4b535c9c6e0e75de"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+let qrCode;
+let countdownInterval;
+let pollTimeout;
+let count = 10;
+let currentEventName = '';
+const baseStudentUrl = window.location.origin + '/student.html';
+
 document.addEventListener('DOMContentLoaded', () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const sessionId = urlParams.get('sessionId');
+  const qrcodeDiv = document.getElementById('qrcode');
+  const timerDisplay = document.getElementById('timer');
+  const indicator = document.querySelector('.led-indicator');
+  const readoutText = document.querySelector('.security-readout span');
+  const endedMessage = document.getElementById('session-ended-message');
+  const line = document.getElementById('scanning-line');
 
-  if (!sessionId) {
-    document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:20vh;">CRITICAL ERROR: No Session ID provided. Please launch this from the Organizer Control Panel.</h1>';
-    return;
-  }
-
-  const timerEl = document.getElementById('timer');
-  let qrcode = new QRCode(document.getElementById("qrcode"), {
-    text: "INITIALIZING",
-    width: 400,
-    height: 400,
+  qrCode = new QRCode(qrcodeDiv, {
+    text: baseStudentUrl,
+    width: 250,
+    height: 250,
     colorDark : "#000000",
-    colorLight : "#eef5ee",
-    correctLevel : QRCode.CorrectLevel.L
+    colorLight : "#effcf2",
+    correctLevel : QRCode.CorrectLevel.H
   });
 
-  let refreshInterval = 10;
-  let currentCountdown = refreshInterval;
+  // Listen to Firebase Realtime Database
+  database.ref('/currentSession').on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (data && data.isActive && data.eventName) {
+      // Session is active
+      if (currentEventName !== data.eventName) {
+        currentEventName = data.eventName;
+        startPolling(); // Restart fresh polling for this event
+      }
+      qrcodeDiv.style.opacity = '1';
+      line.style.display = 'block';
+      endedMessage.style.setProperty('display', 'none', 'important');
+      indicator.classList.add('active');
+      indicator.style.backgroundColor = '#4ade80';
+      indicator.style.boxShadow = '0 0 10px #4ade80';
+      readoutText.innerHTML = `ENCRYPTED LINK ACTIVE • REFRESHING IN <strong id="timer">10</strong> SECONDS`;
+    } else {
+      // Session ended or not active
+      stopPolling();
+      currentEventName = '';
+      
+      qrcodeDiv.style.opacity = '0'; // Hide QR
+      line.style.display = 'none';
+      endedMessage.style.setProperty('display', 'flex', 'important');
+      
+      indicator.classList.remove('active');
+      indicator.style.backgroundColor = '#ff3333';
+      indicator.style.boxShadow = '0 0 10px #ff3333';
+      readoutText.innerHTML = 'ENCRYPTED LINK <strong style="color:#ff3333">TERMINATED</strong>';
+    }
+  });
 
   async function fetchNewToken() {
+    if (!currentEventName) return;
+
     try {
-      const response = await fetch(`/api/token/generate/${sessionId}`);
-      if (!response.ok) {
-        throw new Error('Server rejected token generation.');
-      }
-      const data = await response.json();
+      // Calls new stateless endpoint with eventName
+      const response = await fetch(`/api/qr/token?eventName=${encodeURIComponent(currentEventName)}`);
       
-      // Update the QR Code with the new Student Auth URL + JWT
-      const serverUrl = window.location.origin; 
-      const checkInUrl = `${serverUrl}/student.html?token=${data.token}`;
-      qrcode.makeCode(checkInUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch token');
+      }
+      
+      const data = await response.json();
+      const tokenUrl = `${baseStudentUrl}?token=${data.token}`;
+      
+      qrCode.clear(); 
+      qrCode.makeCode(tokenUrl);
 
-      // Restore UI to Active state in case it recovered from an outage
-      document.querySelector('.led-indicator').classList.add('active');
-      document.querySelector('.security-readout span').innerHTML = "SYSTEM ONLINE &bull; REFRESHING IN <strong id=\"timer\">10</strong> SECONDS";
-      document.querySelector('.security-readout span').style.color = '#88b588';
-
-      // Reset timer
-      currentCountdown = refreshInterval;
+      // Start Countdown
+      count = 10;
+      updateDisplay();
+      
+      // Schedule next token fetch
+      pollTimeout = setTimeout(fetchNewToken, 10000);
     } catch (err) {
-      console.error('Fetch Token Error:', err);
-      document.querySelector('.led-indicator').classList.remove('active');
-      document.querySelector('.security-readout span').innerHTML = "SYSTEM OUTAGE - RECONNECTING... <strong style='display:none' id=\"timer\">ERR</strong>";
-      document.querySelector('.security-readout span').style.color = '#ff4444';
+      console.error('Error fetching token:', err);
+      const tDisp = document.getElementById('timer');
+      if(tDisp) tDisp.textContent = 'ERR';
+      // Retry faster on error
+      pollTimeout = setTimeout(fetchNewToken, 3000);
     }
   }
 
-  // Initial fetch
-  fetchNewToken();
+  function updateDisplay() {
+    const tDisp = document.getElementById('timer');
+    if(tDisp) tDisp.textContent = count;
+  }
 
-  // Heartbeat loop for the countdown and refresh
-  setInterval(() => {
-    currentCountdown--;
-    const currentTimerEl = document.getElementById('timer');
-    if (currentCountdown <= 0) {
-      // Visual feedback for refresh taking place
-      document.querySelector('.led-indicator').style.boxShadow = 'none';
-      setTimeout(() => {
-        document.querySelector('.led-indicator').style.boxShadow = '';
-      }, 200);
+  function startPolling() {
+    stopPolling();
+    // Start countdown timer independent of fetch latency
+    countdownInterval = setInterval(() => {
+      count--;
+      if (count <= 0) count = 10;
+      updateDisplay();
+    }, 1000);
 
-      fetchNewToken();
-    } else {
-      if (currentTimerEl) currentTimerEl.textContent = currentCountdown;
-    }
-  }, 1000);
+    fetchNewToken();
+  }
+
+  function stopPolling() {
+    clearInterval(countdownInterval);
+    clearTimeout(pollTimeout);
+  }
 });

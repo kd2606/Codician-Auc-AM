@@ -18,7 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  // Helper to decode JWT to check session uniqueness locally
   function parseJwt(jwtToken) {
     try {
       const base64Url = jwtToken.split('.')[1];
@@ -33,15 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const payload = parseJwt(token);
-  if (!payload || !payload.sessionId) {
+  if (!payload || !payload.eventName) {
     showError("CORRUPT TOKEN", "The QR code signature is invalid.");
     return;
   }
 
-  const sessionId = payload.sessionId;
+  const eventName = payload.eventName;
 
   // 1. Device Local Storage Check
-  if (localStorage.getItem(`codician_attended_${sessionId}`)) {
+  if (localStorage.getItem(`codician_attended_${eventName}`)) {
     showError("ACCESS DENIED", "Attendance already recorded for this device.");
     return;
   }
@@ -96,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (response.ok) {
         // Mark locally to prevent resubmission
-        localStorage.setItem(`codician_attended_${sessionId}`, 'true');
+        localStorage.setItem(`codician_attended_${eventName}`, 'true');
         showSuccess("TRANSMISSION COMPLETE", "Attendance securely logged.");
       } else {
         showError("TRANSMISSION FAILED", data.error || "Server rejected payload.");
