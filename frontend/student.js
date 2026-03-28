@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showError("TRANSMISSION FAILED", data.error || "Server rejected payload.");
       }
     } catch (err) {
+      console.error('Attendance submission error:', err);
       showError("NETWORK FAULT", "Unable to reach Codician Server.");
     }
   });

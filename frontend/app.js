@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       statusDisplay.textContent = 'INITIALIZING...';
-      const response = await fetch('http://localhost:3000/api/session/start', {
+      const response = await fetch('/api/session/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -85,10 +85,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Open the projector screen automatically in a new window/tab
         window.open(`projector.html?sessionId=${sessionId}`, '_blank');
       } else {
-        throw new Error('Failed to start session');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(`Failed to start session: ${response.status} ${errData.error || ''}`);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Session start error:', err);
       statusDisplay.textContent = 'ERR: SYSTEM FAULT';
     }
   });
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!sessionActive || !sessionId) return;
     try {
       statusDisplay.textContent = 'TERMINATING...';
-      const response = await fetch(`http://localhost:3000/api/session/end/${sessionId}`, {
+      const response = await fetch(`/api/session/end/${sessionId}`, {
         method: 'POST'
       });
 
@@ -107,9 +108,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateHardwareState();
         statusDisplay.textContent = 'SESSION ENDED';
         form.reset();
+      } else {
+        throw new Error(`Failed to end session: ${response.status}`);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Session end error:', err);
       statusDisplay.textContent = 'ERR: TERMINATION FAULT';
     }
   });
@@ -118,6 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadConfig() {
     try {
       const res = await fetch('/api/config');
+      if (!res.ok) {
+        throw new Error(`Config fetch failed: ${res.status} ${res.statusText}`);
+      }
       collegeConfig = await res.json();
       
       Object.keys(collegeConfig).forEach(branch => {
@@ -127,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         branchSelect.appendChild(opt);
       });
     } catch (err) {
-      console.error('Failed to load college config', err);
+      console.error('Failed to load college config:', err);
     }
   }
 
