@@ -51,13 +51,16 @@ async function appendAttendanceRow(eventName, studentData) {
     // Append standard row to the first sheet
     let sheet = doc.sheetsByIndex[0]; 
 
+    // Explicitly auto-set the headers before appending to guarantee a valid data map
+    await sheet.setHeaderRow(['Name', 'Roll Number', 'Branch', 'Semester', 'Event Name', 'Timestamp']);
+
     await sheet.addRow({
-      Timestamp: new Date().toISOString(),
-      'Event Name': eventName,
-      'Student Name': studentData.studentName,
+      'Name': studentData.studentName,
       'Roll Number': studentData.rollNumber,
       'Branch': studentData.branch,
-      'Semester': studentData.semester
+      'Semester': studentData.semester,
+      'Event Name': eventName,
+      'Timestamp': new Date().toISOString()
     });
     
     console.log(`Appended attendance record for ${studentData.studentName} to Sheets.`);

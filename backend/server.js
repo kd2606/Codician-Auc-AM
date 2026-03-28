@@ -84,7 +84,7 @@ app.post('/api/attendance/mark', async (req, res) => {
       await appendAttendanceRow(eventName, studentRecord);
     } catch (sheetsErr) {
       console.error('Sheets append failed (FATAL):', sheetsErr.message);
-      return res.status(500).json({ error: "Sheet append failed", details: sheetsErr.message });
+      return res.status(500).json({ error: "Sheet Database Error", details: sheetsErr.message });
     }
 
     res.json({ message: 'Attendance marked successfully!' });
