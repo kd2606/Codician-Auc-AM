@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "api/attendance/mark.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "backend/server.js",
       "use": "@vercel/node"
     },
@@ -16,6 +20,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/attendance/mark",
+      "destination": "/api/attendance/mark.js"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/backend/server.js"
     },
@@ -29,3 +37,4 @@
     }
   ]
 }
+
