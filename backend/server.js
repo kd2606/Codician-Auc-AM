@@ -32,6 +32,34 @@ app.get('/api/qr/token', (req, res) => {
   res.json({ token, expires_in: 10 });
 });
 
+// ── /api/qr/handshake ────────────────────────────────────────────────────────
+// Exchanges a rapid 10s scan token for a 5-minute submission token
+app.post('/api/qr/handshake', (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ error: 'Missing QR token' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const eventName = decoded.eventName;
+
+    if (!eventName) {
+      return res.status(400).json({ error: 'Invalid session payload' });
+    }
+
+    const submissionToken = jwt.sign(
+      { eventName, exp: Math.floor(Date.now() / 1000) + 300 }, // 5m
+      JWT_SECRET
+    );
+
+    res.json({ submissionToken });
+  } catch (err) {
+    return res.status(401).json({ error: 'SCAN EXPIRED: Please scan the latest code.' });
+  }
+});
+
 // ── /api/attendance/mark ──────────────────────────────────────────────────────
 app.post('/api/attendance/mark', async (req, res) => {
   const { token, studentName, rollNumber, branch, semester } = req.body;

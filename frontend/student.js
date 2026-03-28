@@ -12,9 +12,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const VENUE_LAT = 21.1852;
   const VENUE_LON = 81.7103;
   const MAX_DISTANCE_METERS = 100000;
+  
+  let submissionToken = null;
 
   if (!token) {
-    showError("NO TOKEN DECTECTED", "Scan a physical QR code to begin.");
+    showError("NO TOKEN DETECTED", "Scan a physical QR code to begin.");
     return;
   }
 
@@ -39,37 +41,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const eventName = payload.eventName;
 
-  // 1. Device Local Storage Check
-  if (localStorage.getItem(`codician_attended_${eventName}`)) {
-    showError("ACCESS DENIED", "Attendance already recorded for this device.");
-    return;
+  // 1. Initial Handshake Request
+  // Swaps 10s token for a 5-minute payload
+  fetch('/api/qr/handshake', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token })
+  })
+  .then(res => res.json().then(data => ({ status: res.status, data })))
+  .then(({ status, data }) => {
+    if (status !== 200) {
+      showError("SCAN EXPIRED", data.error || "Please scan the latest code.");
+      return;
+    }
+    submissionToken = data.submissionToken;
+    checkLocalStorage();
+  })
+  .catch(err => {
+    console.error('Handshake Error:', err);
+    showError("NETWORK FAULT", "Unable to establish server handshake.");
+  });
+
+  // 2. Device Local Storage Check
+  function checkLocalStorage() {
+    if (localStorage.getItem(`codician_attended_${eventName}`)) {
+      showError("ACCESS DENIED", "Attendance already recorded for this device.");
+      return;
+    }
+    checkGeolocation();
   }
 
-  // 2. Geolocation Flow
-  if ("geolocation" in navigator) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const studentLat = position.coords.latitude;
-        const studentLon = position.coords.longitude;
-        const distance = getDistanceFromLatLonInM(studentLat, studentLon, VENUE_LAT, VENUE_LON);
-        
-        if (distance > MAX_DISTANCE_METERS) {
-          showError("ACCESS DENIED", `You are not at the event venue. (${Math.round(distance)}m away)`);
-        } else {
-          showSuccess("LOCATION VERIFIED", "PROCEED WITH ID TRANSMISSION");
-        }
-      },
-      (error) => {
-        showError("GPS FAULT", "Location access is required for attendance.");
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
-  } else {
-    showError("HARDWARE INCOMPATIBLE", "Geolocation API not supported on this device.");
+  // 3. Geolocation Flow
+  function checkGeolocation() {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const studentLat = position.coords.latitude;
+          const studentLon = position.coords.longitude;
+          const distance = getDistanceFromLatLonInM(studentLat, studentLon, VENUE_LAT, VENUE_LON);
+          
+          if (distance > MAX_DISTANCE_METERS) {
+            showError("ACCESS DENIED", `You are not at the event venue. (${Math.round(distance)}m away)`);
+          } else {
+            showSuccess("LOCATION VERIFIED", "PROCEED WITH ID TRANSMISSION");
+          }
+        },
+        (error) => {
+          showError("GPS FAULT", "Location access is required for attendance.");
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      showError("HARDWARE INCOMPATIBLE", "Geolocation API not supported on this device.");
+    }
   }
 
-
-  // 3. Form Submission
+  // 4. Form Submission
   attendanceForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
@@ -88,7 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('/api/attendance/mark', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, studentName, rollNumber, branch, semester })
+        // Important: sending the 5-minute submission token instead of the short URL token
+        body: JSON.stringify({ token: submissionToken, studentName, rollNumber, branch, semester })
       });
 
       const data = await response.json();
