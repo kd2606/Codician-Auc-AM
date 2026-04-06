@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Hardcoded Venue Coordinates: Amity University Chhattisgarh
   const VENUE_LAT = 21.1852;
   const VENUE_LON = 81.7103;
-  const MAX_DISTANCE_METERS = 100000;
+  const MAX_DISTANCE_METERS = 100;
   
   let submissionToken = null;
 
@@ -102,8 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // UI Loading state
     statusScreen.classList.remove('error');
-    statusText.textContent = "TRANSMITTING...";
-    statusSub.textContent = "DO NOT TURN OFF DEVICE";
     formContainer.classList.add('hidden');
 
     const studentName = document.getElementById('student-name').value;
@@ -111,26 +109,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const branch = document.getElementById('branch').value;
     const semester = document.getElementById('semester').value;
 
-    try {
-      const response = await fetch('/api/attendance/mark', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // Important: sending the 5-minute submission token instead of the short URL token
-        body: JSON.stringify({ token: submissionToken, name: studentName, rollNumber, branch, semester })
-      });
+    const payload = JSON.stringify({ token: submissionToken, name: studentName, rollNumber, branch, semester });
+    const maxRetries = 5;
+    let attempt = 0;
+    let success = false;
 
-      const data = await response.json();
+    while (attempt < maxRetries && !success) {
+      try {
+        if (attempt > 0) {
+          statusText.textContent = `RETRYING... (${attempt}/${maxRetries})`;
+          statusSub.textContent = "HIGH TRAFFIC KNOWN. DO NOT CLOSE.";
+        } else {
+          statusText.textContent = "TRANSMITTING...";
+          statusSub.textContent = "PLEASE WAIT. DO NOT CLOSE.";
+        }
 
-      if (response.ok) {
-        // Mark locally to prevent resubmission
-        localStorage.setItem(`codician_attended_${eventName}`, 'true');
-        showSuccess("TRANSMISSION COMPLETE", "Attendance securely logged.");
-      } else {
-        showError("TRANSMISSION FAILED", data.error || "Server rejected payload.");
+        const response = await fetch('/api/attendance/mark', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: payload
+        });
+
+        const contentType = response.headers.get("content-type");
+        let data = { error: "Unknown server error" };
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          data = await response.json();
+        }
+
+        if (response.ok) {
+          // Mark locally to prevent resubmission
+          localStorage.setItem(`codician_attended_${eventName}`, 'true');
+          showSuccess("TRANSMISSION COMPLETE", "Attendance securely logged.");
+          success = true;
+        } else {
+          // If rate limit (429) or server crash (500+), retry
+          if (response.status === 429 || response.status >= 500) {
+            attempt++;
+            if (attempt < maxRetries) {
+              const backoff = Math.pow(2, attempt) * 500 + Math.random() * 500;
+              await new Promise(r => setTimeout(r, backoff));
+            } else {
+               showError("TRANSMISSION FAILED", "Network busy. Please scan code again later.");
+            }
+          } else {
+             // Exact error like Missing payload, unauthorized (Token Corrupt/Expired)
+             showError("TRANSMISSION FAILED", data.error || "Server rejected payload.");
+             break;
+          }
+        }
+      } catch (err) {
+        console.error('Attendance submission error:', err);
+        attempt++;
+        if (attempt < maxRetries) {
+           const backoff = Math.pow(2, attempt) * 500 + Math.random() * 500;
+           await new Promise(r => setTimeout(r, backoff));
+        } else {
+           showError("NETWORK FAULT", "Unable to reach Codician Server. Check Internet.");
+        }
       }
-    } catch (err) {
-      console.error('Attendance submission error:', err);
-      showError("NETWORK FAULT", "Unable to reach Codician Server.");
     }
   });
 
